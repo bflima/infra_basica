@@ -73,14 +73,18 @@ MASK=${MASK:=$MASK_ATUAL}
 
 # Ajustar arquivo resolv.conf
 RESOLV_CONF=$(find /etc/ -iname resolv.conf)
+
+# desproteger o arquivo
 chattr -i "$RESOLV_CONF"
 
 cat > "$RESOLV_CONF" << EOF
 nameserver $IP_UNBOUND
 nameserver 127.0.0.1
 nameserver 1.1.1.1
-chattr +i /etc/resolv.conf
 EOF
+
+# Proteger o arquivo
+chattr +i chattr -i "$RESOLV_CONF"
 
 # Caminhos de configuração dos arquivos unbound
 UNBOUND_ROOT_HINTS='/etc/unbound/root.hints'
@@ -187,3 +191,5 @@ systemctl enable unbound  || _MSG_ERRO_INFO 'Erro ao inicializar serviço'
 # Verificar sistema e serviços precisa de restart
 for services in $(needs-restarting -s) ; do systemctl restart "$services" ; done
 needs-restarting -r > /dev/null || { if whiptail --title "Aplicar Configurações - Unbound" --yesno "Deseja reiniciar o servidor" 10 50 --defaultyes ; then reboot ; fi ; } 
+
+# Fim do script
