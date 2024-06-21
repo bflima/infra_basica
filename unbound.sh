@@ -84,7 +84,7 @@ nameserver 1.1.1.1
 EOF
 
 # Proteger o arquivo
-chattr +i chattr -i "$RESOLV_CONF"
+chattr +i "$RESOLV_CONF"
 
 # Caminhos de configuração dos arquivos unbound
 UNBOUND_ROOT_HINTS='/etc/unbound/root.hints'
@@ -182,7 +182,7 @@ EOF
 
 # Adicionar serviço ao firewall
 firewall-cmd --state | grep -qi running && { firewall-cmd --add-service=dns --permanent || _MSG_ERRO_INFO 'Erro ao adicionar serviço DNS' ; }
-firewall-cmd --reload || _MSG_ERRO_INFO 'Erro ao reiniciar firewalld'
+firewall-cmd --state | grep -qi running && { firewall-cmd --reload                      || _MSG_ERRO_INFO 'Erro ao reiniciar firewalld' ; }
 
 # Reiniciar serviço DNS
 systemctl restart unbound || _MSG_ERRO_INFO 'Serviço não inicializado'
@@ -190,6 +190,6 @@ systemctl enable unbound  || _MSG_ERRO_INFO 'Erro ao inicializar serviço'
 
 # Verificar sistema e serviços precisa de restart
 for services in $(needs-restarting -s) ; do systemctl restart "$services" ; done
-needs-restarting -r > /dev/null || { if whiptail --title "Aplicar Configurações - Unbound" --yesno "Deseja reiniciar o servidor" 10 50 --defaultyes ; then reboot ; fi ; } 
+needs-restarting -r > /dev/null || { if whiptail --title "Aplicar Configurações - Unbound" --yesno "Deseja reiniciar o servidor" 10 50 --defaultno ; then reboot ; fi ; } 
 
 # Fim do script
