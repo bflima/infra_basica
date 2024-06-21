@@ -7,7 +7,7 @@ set -xeuo pipefail
 ## NOME.............: dhcp.sh
 ## VERSÃO...........: 1.0
 ## DESCRIÇÃO........: Instala serviço dhcp
-## DATA DA CRIAÇÃO..: 18/05/2024
+## DATA DA CRIAÇÃO..: 21/06/2024
 ## ESCRITO POR......: Bruno Lima
 ## E-MAIL...........: bruno@lc.tec.br
 ## DISTRO...........: Rocky GNU/Linux
