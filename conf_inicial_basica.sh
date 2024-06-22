@@ -51,6 +51,7 @@ _ESCONDER_BANNER(){
 # Função para realizar instalação de pacotes
 _INSTALAR_PACOTES(){
   # Declaração de variáveis
+  yum update -y && yum upgrade -y
   PACOTES='nano vim bash-completion yum-utils whiptail' 
 
   # Realizar a instalação dos pacotes acima
