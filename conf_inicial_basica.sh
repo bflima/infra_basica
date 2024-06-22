@@ -93,7 +93,25 @@ _AJUSTAR_HOSTNAME(){
   HOSTNAME=${HOSTNAME:='rocky'}
   hostnamectl set-hostname "$HOSTNAME"
 }
+################################################################################
+# Função para ajustar o tamanho quantidade e hora da execução do comando
+_AJUSTAR_HISTORICO(){
+BASH_RC=$(find "$HOME" -iname .bashrc)
 
+grep -qi 'CONF_BASH' "$BASH_RC" || \
+cat >> "${BASH_RC}" << EOF
+## CONF_BASH ##
+export HISTCONTROL='ignoreboth'
+export HISTIGNORE='ls:ls -lah:history:pwd:htop:bg:fg:clear'
+export HISTTIMEFORMAT="%F %T$ "
+export PROMPT_COMMAND='history -a'
+export HISTSIZE=10000
+export HISTFILESIZE=20000
+
+shopt -s histappend
+shopt -s cmdhist
+EOF
+}
 ################################################################################
 # Função para criar novo usuário
 _CRIAR_USUARIO_ACESSO(){
@@ -108,28 +126,31 @@ _CRIAR_USUARIO_ACESSO(){
 # Inicio do script
 
 # Checar OS está homologado para distros baseadas em redhat
-_VERIFICAR_OS
+_VERIFICAR_OS         || _MSG_ERRO_INFO 'Erro ao executar função: _VERIFICAR_OS '
 
 # Checar se o script tem permissão de root para execução
-_VERIFICAR_ROOT
+_VERIFICAR_ROOT       || _MSG_ERRO_INFO 'Erro ao executar função: _VERIFICAR_ROOT '
 
 # Realizar a troca das mensagens padrão do sistema
-_ESCONDER_BANNER
+_ESCONDER_BANNER      || _MSG_ERRO_INFO 'Erro ao executar função: _ESCONDER_BANNER  '
 
 # Instalar pacotes basicos
-_INSTALAR_PACOTES
+_INSTALAR_PACOTES     || _MSG_ERRO_INFO 'Erro ao executar função: _INSTALAR_PACOTES '
 
 # Desativar firewalld
-_DESATIVAR_FIREWALL
+_DESATIVAR_FIREWALL   || _MSG_ERRO_INFO 'Erro ao executar função: _DESATIVAR_FIREWALL '
 
 # Desativar Selinux
-_DESATIVAR_SELINUX
+_DESATIVAR_SELINUX    || _MSG_ERRO_INFO 'Erro ao executar função:  _DESATIVAR_SELINUX'
 
 # Ajustes locais
-_AJUSTAR_TIMEZONE
-_AJUSTAR_TECLADO
-_AJUSTAR_HOSTNAME
-_CRIAR_USUARIO_ACESSO
+_AJUSTAR_TIMEZONE     || _MSG_ERRO_INFO 'Erro ao executar função:  _AJUSTAR_TIMEZONE'
+_AJUSTAR_TECLADO      || _MSG_ERRO_INFO 'Erro ao executar função:  _AJUSTAR_TECLADO'
+_AJUSTAR_HOSTNAME     || _MSG_ERRO_INFO 'Erro ao executar função:  _AJUSTAR_HOSTNAME'
+_AJUSTAR_HISTORICO    || _MSG_ERRO_INFO 'Erro ao executar função:  _AJUSTAR_HISTORICO'
+_CRIAR_USUARIO_ACESSO || _MSG_ERRO_INFO 'Erro ao executar função:  _CRIAR_USUARIO_ACESSO'
 
 # Reiniciar o servidor
 if whiptail --title "Aplicar Configurações realizadas" --yesno "Deseja reiniciar o servidor" 10 50 --defaultno ; then reboot ; fi 
+
+# Fim script
