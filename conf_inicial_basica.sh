@@ -67,6 +67,15 @@ _DESATIVAR_FIREWALL(){
     then
      systemctl stop firewalld
      systemctl disable firewalld
+     
+     # Desativar serviços adicionais
+     systemctl stop avahi-daemon.socket
+     systemctl disable avahi-daemon.socket
+     # Cups
+     systemctl disable cups
+     systemctl stop cups
+     # Remover serviços
+     yum remove avahi-autoipd avahi-libs avahi-tools cups
   fi
 }
 
