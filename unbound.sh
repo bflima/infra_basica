@@ -7,13 +7,14 @@ set -xeuo pipefail
 ## NOME.............: dhcp.sh
 ## VERSÃO...........: 1.0
 ## DESCRIÇÃO........: Instala serviço dhcp
-## DATA DA CRIAÇÃO..: 21/06/2024
+## DATA DA CRIAÇÃO..: 18/05/2024
 ## ESCRITO POR......: Bruno Lima
 ## E-MAIL...........: bruno@lc.tec.br
 ## DISTRO...........: Rocky GNU/Linux
 ## VERSÃO HOMOLOGADA: 8 e 9 
 ## LICENÇA..........: GPLv3
 ## Git Hub..........: https://github.com/bflima
+## Documentação.....: https://semanacap.bcp.nic.br/files/apresentacao/arquivo/864/Implementacao%20de%20servidores%20recursivos%20guia%20de%20praticas%20semcap%20ceptro%20br.pdf
 
 # Funções
 ################################################################################
@@ -46,6 +47,7 @@ command -v whiptail > /dev/null || yum -y install whiptail -y || _MSG_ERRO_INFO 
 command -v unbound  > /dev/null || yum -y install unbound  -y || _MSG_ERRO_INFO 'Erro ao instalar pacote unbound'
 command -v ipcalc   > /dev/null || yum -y install ipcalc   -y || _MSG_ERRO_INFO 'Erro ao instalar pacote ipcalc'
 command -v wget     > /dev/null || yum -y install wget     -y || _MSG_ERRO_INFO 'Erro ao instalar pacote wget'
+command -v bc       > /dev/null || yum -y install bc       -y || _MSG_ERRO_INFO 'Erro ao instalar pacote bc'
 command -v needs-restarting > /dev/null || yum -y install yum-utils -y || _MSG_ERRO_INFO 'Erro ao instalar pacote needs-restarting'
 
 # Obter ip em uso atualmente
@@ -97,9 +99,30 @@ chown unbound:unbound "$UNBOUND_ROOT_HINTS" || _MSG_ERRO_INFO "Erro ao acessar a
 wget http://www.internic.net/domain/root.zone   -O "$UNBOUND_ROOT_ZONES" || _MSG_ERRO_INFO 'Erro ao baixar arquivo root.hints'
 chown unbound:unbound "$UNBOUND_ROOT_ZONES" || _MSG_ERRO_INFO 'Erro ao acessar arquivo root.zone'
 
+# Arquivo root key
+ROOT_KEY=$(find /etc/ -iname root.key)
+ROOT_KEY=${ROOT_KEY:=/etc/unbound/root.key}
+
+# Função não implementada
+#[[ -f "$ROOT_KEY" ]] && rm -rf "$ROOT_KEY"
+#unbound-anchor -a "$ROOT_KEY" -vvv
+#chown unbound:unbound "$ROOT_KEY"
+
+## Erro aqui
+
 # Realizar backup do arquivo padrão de configuração
 UNBOUND_CONF=$(find /etc/ -iname unbound.conf) || _MSG_ERRO_INFO 'Arquivo não encontrado'
 [[ ! -e "$UNBOUND_CONF".orig ]] && cp "$UNBOUND_CONF"{,.orig}
+
+# Numero de cores
+NCORE=$(nproc)
+CACHE=$(echo "scale=2; $(nproc)^3" | bc) || _MSG_ERRO_INFO 'Erro ao realizar opeção'
+
+MEM=$(free -m | grep -i mem | awk '{print $2}')
+# Usar 10 %
+MIN_MEM=$(echo "scale=2; $MEM * 0.1" | bc) || _MSG_ERRO_INFO 'Erro ao realizar opeção'
+# Usar 50%
+MAX_MEM=$(echo "scale=2; $MEM * 0.5" | bc) || _MSG_ERRO_INFO 'Erro ao realizar opeção'
 
 # Gravar arquivo
 cat > "$UNBOUND_CONF" << EOF
@@ -128,14 +151,10 @@ server:
         access-control: ::1 allow_snoop
         access-control: 127.0.0.0/8 allow
         access-control: $IP_UNBOUND/$MASK allow
-
-        msg-cache-slabs: 8
-        rrset-cache-slabs: 8
-        infra-cache-slabs: 8
-        key-cache-slabs: 8
-        rrset-cache-size: 256m
-        msg-cache-size: 128m
         so-rcvbuf: 8m
+
+#DNSSEC
+#        auto-trust-anchor-file: "$ROOT_KEY"
 
 #[ privacidade ]
         hide-identity: yes
@@ -156,12 +175,14 @@ server:
         private-address: ::ffff:0:0/96
 
 #[ performance ]
-        num-threads: $(nproc)
-        msg-cache-slabs: $(nproc)
-        key-cache-slabs: $(nproc)
-        rrset-cache-slabs: $(nproc)
-        infra-cache-slabs: $(nproc)
+        num-threads: $NCORE
+        msg-cache-slabs: $CACHE
+        key-cache-slabs: $CACHE
+        rrset-cache-slabs: $CACHE
+        infra-cache-slabs: $CACHE
         rrset-roundrobin: yes
+        rrset-cache-size: ${MIN_MEM//.*}m
+        msg-cache-size: ${MAX_MEM//.*}m
         cache-max-ttl: 86400
         outgoing-num-tcp: 1024
         outgoing-range: 8192
@@ -169,6 +190,15 @@ server:
         so-reuseport: yes
         prefetch: yes
         prefetch-key: yes
+
+# Segurança
+unwanted-reply-threshold: 10000
+do-not-query-localhost:no
+val-clean-additional: yes
+
+# Bloqueios de dominios, bloco composto de local-zone e local-data
+local-zone: "doubleclick.net" redirect
+local-data: "doubleclick.net A 127.0.0.1"
 
 auth-zone:
 	name: "."
