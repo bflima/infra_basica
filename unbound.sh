@@ -129,7 +129,8 @@ cat > "$UNBOUND_CONF" << EOF
 server:
         verbosity: 1
         log-queries: yes
-
+	chroot: ""
+ 
         # interface-automatic: no
         do-udp: yes
         do-tcp: yes
