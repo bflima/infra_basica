@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Descomentar a linha abaixo para ativar debug
-set -xeuo pipefail
+# set -xeuo pipefail
 
 ## INFO ##
 ## NOME.............: dhcp.sh
@@ -43,11 +43,12 @@ clear
 yum update -y && yum upgrade -y
 
 # Pacotes necessários para execução do script
-command -v whiptail > /dev/null || yum -y install whiptail -y || _MSG_ERRO_INFO 'Erro ao instalar pacote whiptail'
-command -v unbound  > /dev/null || yum -y install unbound  -y || _MSG_ERRO_INFO 'Erro ao instalar pacote unbound'
-command -v ipcalc   > /dev/null || yum -y install ipcalc   -y || _MSG_ERRO_INFO 'Erro ao instalar pacote ipcalc'
-command -v wget     > /dev/null || yum -y install wget     -y || _MSG_ERRO_INFO 'Erro ao instalar pacote wget'
-command -v bc       > /dev/null || yum -y install bc       -y || _MSG_ERRO_INFO 'Erro ao instalar pacote bc'
+command -v whiptail > /dev/null || yum install whiptail   -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote whiptail'
+command -v unbound  > /dev/null || yum install unbound    -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote unbound'
+command -v ipcalc   > /dev/null || yum install ipcalc     -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote ipcalc'
+command -v dig      > /dev/null || yum install bind-utils -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote bind-utils'
+command -v wget     > /dev/null || yum install wget       -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote wget'
+command -v bc       > /dev/null || yum install bc         -y  || _MSG_ERRO_INFO 'Erro ao instalar pacote bc'
 command -v needs-restarting > /dev/null || yum -y install yum-utils -y || _MSG_ERRO_INFO 'Erro ao instalar pacote needs-restarting'
 
 # Obter ip em uso atualmente
@@ -100,15 +101,12 @@ wget http://www.internic.net/domain/root.zone   -O "$UNBOUND_ROOT_ZONES" || _MSG
 chown unbound:unbound "$UNBOUND_ROOT_ZONES" || _MSG_ERRO_INFO 'Erro ao acessar arquivo root.zone'
 
 # Arquivo root key
-ROOT_KEY=$(find /etc/ -iname root.key)
-ROOT_KEY=${ROOT_KEY:=/etc/unbound/root.key}
+ROOT_KEY=$(find /var/ -iname root.key)
+ROOT_KEY=${ROOT_KEY:=/var/lib/unbound/root.key}
 
-# Função não implementada
-#[[ -f "$ROOT_KEY" ]] && rm -rf "$ROOT_KEY"
-#unbound-anchor -a "$ROOT_KEY" -vvv
-#chown unbound:unbound "$ROOT_KEY"
-
-## Erro aqui
+[[ -f "$ROOT_KEY" ]] && rm -rf "$ROOT_KEY"
+unbound-anchor -a "$ROOT_KEY" -vvv
+chown unbound:unbound "$ROOT_KEY"
 
 # Realizar backup do arquivo padrão de configuração
 UNBOUND_CONF=$(find /etc/ -iname unbound.conf) || _MSG_ERRO_INFO 'Arquivo não encontrado'
@@ -129,8 +127,8 @@ cat > "$UNBOUND_CONF" << EOF
 server:
         verbosity: 1
         log-queries: yes
-	chroot: ""
- 
+        chroot: ""
+
         # interface-automatic: no
         do-udp: yes
         do-tcp: yes
@@ -155,9 +153,10 @@ server:
         so-rcvbuf: 8m
 
 #DNSSEC
-#        auto-trust-anchor-file: "$ROOT_KEY"
+        auto-trust-anchor-file: "$ROOT_KEY"
 
 #[ privacidade ]
+        qname-minimisation: yes
         hide-identity: yes
         hide-version: yes
         harden-glue: yes
@@ -224,3 +223,8 @@ for services in $(needs-restarting -s) ; do systemctl restart "$services" ; done
 needs-restarting -r > /dev/null || { if whiptail --title "Aplicar Configurações - Unbound" --yesno "Deseja reiniciar o servidor" 10 50 --defaultno ; then reboot ; fi ; } 
 
 # Fim do script
+# Testes úteis
+
+# Tempo de resposta (comparar)
+# clear ; dig www.google.com a | grep time ; dig @9.9.9.9 www.google.com a | grep time
+# while :; do for ip in $(hostname -I) 1.1.1.1 9.9.9.9 8.8.8.8; do dig @$ip a | grep time ; done ; sleep 1 ; echo ; done
